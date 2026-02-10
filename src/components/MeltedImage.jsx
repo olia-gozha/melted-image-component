@@ -3,6 +3,11 @@ import { useRef, useEffect, useState, useId } from 'react';
 export default function MeltedImage({
   imgSrc,
   imgAlt,
+  size = 40,
+  aspectRatio = 1,
+  cornerRadius = '9999px',
+  stretch = false,
+  mode = 'default',
   turbulenceBaseFrequency = 0.05,
   turbulenceNumOctaves = 3,
   turbulenceSeed,
@@ -11,6 +16,7 @@ export default function MeltedImage({
   displacementActiveScale = 100,
   displacementXChannelSelector = 'R',
   displacementYChannelSelector = 'G',
+  iconColor,
 }) {
   const id = useId();
   const filterId = `glass-distortion-${id.replace(/:/g, '')}`;
@@ -22,6 +28,9 @@ export default function MeltedImage({
   const reqRef = useRef(null);
   const currentScaleRef = useRef(displacementInactiveScale);
   const sensorRef = useRef(null);
+
+  const isHovered = isParentHovered || isSelfHovered;
+  const isEffectActive = mode === 'inverted' ? !isHovered : isHovered;
 
   const resolvedBaseFrequency = Array.isArray(turbulenceBaseFrequency)
     ? turbulenceBaseFrequency.join(' ')
@@ -41,8 +50,9 @@ export default function MeltedImage({
   }, []);
 
   useEffect(() => {
-    const isActive = isParentHovered || isSelfHovered;
-    const targetScale = isActive ? displacementActiveScale : displacementInactiveScale;
+    const targetScale = isEffectActive
+      ? displacementActiveScale
+      : displacementInactiveScale;
 
     const animate = () => {
       const diff = targetScale - currentScaleRef.current;
@@ -68,27 +78,49 @@ export default function MeltedImage({
       if (reqRef.current) cancelAnimationFrame(reqRef.current);
     };
   }, [
-    isParentHovered,
-    isSelfHovered,
+    isEffectActive,
     displacementActiveScale,
     displacementInactiveScale,
   ]);
 
   useEffect(() => {
-    const isActive = isParentHovered || isSelfHovered;
-    if (isActive) return;
+    if (isEffectActive) return;
 
     currentScaleRef.current = displacementInactiveScale;
     if (displacementRef.current) {
       displacementRef.current.scale.baseVal = displacementInactiveScale;
     }
-  }, [displacementInactiveScale, isParentHovered, isSelfHovered]);
+  }, [displacementInactiveScale, isEffectActive]);
 
   const distortionStyle = { filter: `url(#${filterId})` };
+  const iconStyle = iconColor ? { color: iconColor } : undefined;
+  const sizeCss = typeof size === 'number' ? `${size}px` : size;
+  const cornerRadiusCss =
+    typeof cornerRadius === 'number' ? `${cornerRadius}px` : cornerRadius;
+  const resolvedAspectRatio =
+    typeof aspectRatio === 'string' ? aspectRatio.replace('/', ' / ') : aspectRatio;
+
+  const wrapperClassName = stretch
+    ? 'relative w-full h-full self-stretch'
+    : 'relative inline-block';
+  const containerStyle = stretch
+    ? {
+        width: '100%',
+        height: '100%',
+        borderRadius: cornerRadiusCss,
+      }
+    : {
+        width: sizeCss,
+        aspectRatio: resolvedAspectRatio,
+        borderRadius: cornerRadiusCss,
+      };
+  const roundedStyle = { borderRadius: cornerRadiusCss };
+  const isImageHidden = mode === 'inverted' && isEffectActive;
+  const isIconActive = mode === 'inverted' ? !isHovered : isHovered;
 
   return (
     <div
-      className="relative inline-block"
+      className={wrapperClassName}
       onMouseEnter={() => setIsSelfHovered(true)}
       onMouseLeave={() => setIsSelfHovered(false)}
     >
@@ -103,7 +135,7 @@ export default function MeltedImage({
       */}
       <div
         ref={sensorRef}
-        className="absolute top-0 left-0 w-0 h-0 pointer-events-none opacity-0 group-hover/avatar-link:w-[1px]"
+        className="absolute top-0 left-0 w-0 h-0 pointer-events-none opacity-0 group-hover/avatar-link:w-px group-hover/avatar-link:h-px"
         aria-hidden="true"
       />
 
@@ -129,35 +161,57 @@ export default function MeltedImage({
         </defs>
       </svg>
 
-      <div className="rounded-full w-10 h-10 flex items-center justify-center overflow-hidden relative transform-gpu">
+      <div
+        className="flex items-center justify-center overflow-hidden relative transform-gpu"
+        style={containerStyle}
+      >
         <div
-          className="absolute inset-0 bg-white/20 backdrop-blur-none group-hover/avatar-link:backdrop-blur-[3px] opacity-0 group-hover/avatar-link:opacity-100 transition-all duration-300 ease-out pointer-events-none rounded-full z-20"
-          style={distortionStyle}
+          className={`absolute inset-0 bg-white/20 transition-all duration-300 ease-out pointer-events-none z-20 ${
+            isEffectActive
+              ? 'opacity-100 backdrop-blur-[3px]'
+              : 'opacity-0 backdrop-blur-none'
+          }`}
+          style={{ ...distortionStyle, ...roundedStyle }}
         />
 
-        <div className="group-hover/avatar-link:opacity-100 transition-all duration-[600ms] opacity-0 ease-out absolute text-ocean top-0 bottom-0 blur-[1px] left-0 right-0 m-auto w-10 h-10 flex items-center justify-center z-30 pointer-events-none rotate-[60deg] group-hover/avatar-link:rotate-0 mix-blend-plus-lighter">
+        <div
+          className={`transition-opacity transition-transform duration-[600ms] ease-out absolute text-ocean inset-0 blur-[1px] flex items-center justify-center z-30 pointer-events-none mix-blend-soft-light transform-gpu origin-center ${
+            isIconActive ? 'opacity-100 rotate-0' : 'opacity-0 rotate-\[-90deg\]'
+          }`}
+          style={iconStyle}
+        >
           <svg
-            width="42"
-            height="11"
             viewBox="0 0 42 11"
             fill="currentColor"
             xmlns="http://www.w3.org/2000/svg"
+            preserveAspectRatio="xMidYMid meet"
+            style={{ width: '105%', height: '27.5%' }}
           >
             <path d="M42 5.15466C42 16.7526 32.598 5.15466 21 5.15466C9.40202 5.15466 0 16.7526 0 5.15466C0 -6.44332 9.40202 5.15466 21 5.15466C32.598 5.15466 42 -6.44332 42 5.15466Z" />
           </svg>
         </div>
 
         <div
-          className="group-hover/avatar-link:opacity-100 absolute inset-0 bg-cover bg-center blur-[2px] translate-x-1 opacity-0 mix-blend-screen bg-sand/10 transition-opacity duration-300 z-10"
+          className={`absolute inset-0 bg-cover bg-center blur-[2px] translate-x-1 mix-blend-screen bg-sand/10 transition-opacity duration-300 z-10 ${
+            isEffectActive ? 'opacity-100' : 'opacity-0'
+          }`}
           style={{ ...distortionStyle, backgroundImage: `url('${imgSrc}')` }}
         />
 
         <div
-          className="group-hover/avatar-link:opacity-100 absolute inset-0 bg-cover bg-center blur-[2px] -translate-x-1 opacity-0 mix-blend-screen bg-slate/20 transition-opacity duration-300 z-10"
+          className={`absolute inset-0 bg-cover bg-center blur-[2px] -translate-x-1 mix-blend-screen bg-slate/20 transition-opacity duration-300 z-10 ${
+            isEffectActive ? 'opacity-100' : 'opacity-0'
+          }`}
           style={{ ...distortionStyle, backgroundImage: `url('${imgSrc}')` }}
         />
 
-        <img src={imgSrc} alt={imgAlt} className="w-10 h-10 object-cover relative z-0" />
+        <img
+          src={imgSrc}
+          alt={imgAlt}
+          className={`w-full h-full object-cover relative z-0 transition-opacity duration-300 ${
+            isImageHidden ? 'opacity-0' : 'opacity-100'
+          }`}
+        />
       </div>
     </div>
   );
