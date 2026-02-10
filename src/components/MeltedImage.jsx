@@ -1,6 +1,6 @@
-import { useRef, useEffect, useState, useId } from 'react';
+import { memo, useEffect, useId, useRef, useState } from 'react';
 
-export default function MeltedImage({
+function MeltedImage({
   imgSrc,
   imgAlt,
   size = 40,
@@ -28,6 +28,9 @@ export default function MeltedImage({
   const reqRef = useRef(null);
   const currentScaleRef = useRef(displacementInactiveScale);
   const sensorRef = useRef(null);
+  const imgRef = useRef(null);
+
+  const [isImageLoaded, setIsImageLoaded] = useState(false);
 
   const isHovered = isParentHovered || isSelfHovered;
   const isEffectActive = mode === 'inverted' ? !isHovered : isHovered;
@@ -35,6 +38,19 @@ export default function MeltedImage({
   const resolvedBaseFrequency = Array.isArray(turbulenceBaseFrequency)
     ? turbulenceBaseFrequency.join(' ')
     : String(turbulenceBaseFrequency);
+
+  useEffect(() => {
+    setIsImageLoaded(false);
+  }, [imgSrc]);
+
+  useEffect(() => {
+    const imgEl = imgRef.current;
+    if (!imgEl) return;
+
+    if (imgEl.complete && imgEl.naturalWidth > 0) {
+      setIsImageLoaded(true);
+    }
+  }, [imgSrc]);
 
   useEffect(() => {
     if (!sensorRef.current) return;
@@ -50,47 +66,66 @@ export default function MeltedImage({
   }, []);
 
   useEffect(() => {
-    const targetScale = isEffectActive
-      ? displacementActiveScale
-      : displacementInactiveScale;
+    if (reqRef.current) {
+      cancelAnimationFrame(reqRef.current);
+      reqRef.current = null;
+    }
+
+    const displacementEl = displacementRef.current;
+
+    if (!displacementEl) {
+      currentScaleRef.current = isEffectActive
+        ? displacementActiveScale
+        : displacementInactiveScale;
+      return;
+    }
+
+    if (!isEffectActive) {
+      currentScaleRef.current = displacementInactiveScale;
+      displacementEl.scale.baseVal = displacementInactiveScale;
+      return;
+    }
+
+    const targetScale = displacementActiveScale;
+    const prefersReducedMotion =
+      typeof window !== 'undefined' &&
+      typeof window.matchMedia === 'function' &&
+      window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+    if (prefersReducedMotion) {
+      currentScaleRef.current = targetScale;
+      displacementEl.scale.baseVal = targetScale;
+      return;
+    }
+
+    let isCancelled = false;
 
     const animate = () => {
-      const diff = targetScale - currentScaleRef.current;
+      if (isCancelled) return;
 
+      const diff = targetScale - currentScaleRef.current;
       if (Math.abs(diff) < 0.5) {
         currentScaleRef.current = targetScale;
-        if (displacementRef.current) {
-          displacementRef.current.scale.baseVal = targetScale;
-        }
-        if (targetScale === 1 && currentScaleRef.current === 1) return;
-      } else {
-        currentScaleRef.current += diff * 0.05;
-        if (displacementRef.current) {
-          displacementRef.current.scale.baseVal = currentScaleRef.current;
-        }
+        displacementEl.scale.baseVal = targetScale;
+        return;
       }
 
+      currentScaleRef.current += diff * 0.05;
+      displacementEl.scale.baseVal = currentScaleRef.current;
       reqRef.current = requestAnimationFrame(animate);
     };
 
     reqRef.current = requestAnimationFrame(animate);
     return () => {
+      isCancelled = true;
       if (reqRef.current) cancelAnimationFrame(reqRef.current);
+      reqRef.current = null;
     };
   }, [
     isEffectActive,
     displacementActiveScale,
     displacementInactiveScale,
   ]);
-
-  useEffect(() => {
-    if (isEffectActive) return;
-
-    currentScaleRef.current = displacementInactiveScale;
-    if (displacementRef.current) {
-      displacementRef.current.scale.baseVal = displacementInactiveScale;
-    }
-  }, [displacementInactiveScale, isEffectActive]);
 
   const distortionStyle = { filter: `url(#${filterId})` };
   const iconStyle = iconColor ? { color: iconColor } : undefined;
@@ -117,6 +152,7 @@ export default function MeltedImage({
   const roundedStyle = { borderRadius: cornerRadiusCss };
   const isImageHidden = mode === 'inverted' && isEffectActive;
   const isIconActive = mode === 'inverted' ? !isHovered : isHovered;
+  const shouldShowIcon = isImageLoaded && isIconActive;
 
   return (
     <div
@@ -175,8 +211,10 @@ export default function MeltedImage({
         />
 
         <div
-          className={`transition-opacity transition-transform duration-[600ms] ease-out absolute text-ocean inset-0 blur-[1px] flex items-center justify-center z-30 pointer-events-none mix-blend-soft-light transform-gpu origin-center ${
-            isIconActive ? 'opacity-100 rotate-0' : 'opacity-0 rotate-\[-90deg\]'
+          className={`transition-all duration-600 ease-out absolute text-ocean inset-0 blur-[1px] flex items-center justify-center z-30 pointer-events-none mix-blend-soft-light transform-gpu origin-center ${
+            shouldShowIcon
+              ? 'opacity-100 rotate-0'
+              : 'opacity-0 rotate-\[-90deg\]'
           }`}
           style={iconStyle}
         >
@@ -206,8 +244,11 @@ export default function MeltedImage({
         />
 
         <img
+          ref={imgRef}
           src={imgSrc}
           alt={imgAlt}
+          onLoad={() => setIsImageLoaded(true)}
+          onError={() => setIsImageLoaded(false)}
           className={`w-full h-full object-cover relative z-0 transition-opacity duration-300 ${
             isImageHidden ? 'opacity-0' : 'opacity-100'
           }`}
@@ -216,3 +257,5 @@ export default function MeltedImage({
     </div>
   );
 }
+
+export default memo(MeltedImage);
