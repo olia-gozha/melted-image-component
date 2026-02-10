@@ -1,6 +1,6 @@
-import Avatar from './components/Avatar.jsx';
+import MeltedImage from './components/MeltedImage.jsx';
 
-const demoImg = 'https://placehold.co/80x80/png';
+const demoImg = 'https://cdn.midjourney.com/b0072aee-4ee4-4917-aead-10b5c03ae98e/0_1.png';
 
 export default function App() {
   return (
@@ -17,7 +17,7 @@ export default function App() {
             className="group/avatar-link inline-flex items-center gap-3 rounded-full px-4 py-3 bg-ghost"
             onClick={(e) => e.preventDefault()}
           >
-            <Avatar imgSrc={demoImg} imgAlt="Demo avatar" />
+            <MeltedImage imgSrc={demoImg} imgAlt="Demo avatar" />
             <span className="text-sm">Olivia • View profile</span>
           </a>
         </div>

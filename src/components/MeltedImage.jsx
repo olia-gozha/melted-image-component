@@ -1,6 +1,6 @@
 import { useRef, useEffect, useState, useId } from 'react';
 
-export default function Avatar({ imgSrc, imgAlt }) {
+export default function MeltedImage({ imgSrc, imgAlt }) {
   const id = useId();
   const filterId = `glass-distortion-${id.replace(/:/g, '')}`;
 

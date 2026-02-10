@@ -1,6 +1,6 @@
-## Avatar demo (Vite + React)
+## MeltedImage demo (Vite + React)
 
-Standalone demo project for the `Avatar` component.
+Standalone demo project for the `MeltedImage` component.
 
 ## Local
 
