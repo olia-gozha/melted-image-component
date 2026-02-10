@@ -1,6 +1,17 @@
 import { useRef, useEffect, useState, useId } from 'react';
 
-export default function MeltedImage({ imgSrc, imgAlt }) {
+export default function MeltedImage({
+  imgSrc,
+  imgAlt,
+  turbulenceBaseFrequency = 0.05,
+  turbulenceNumOctaves = 3,
+  turbulenceSeed,
+  turbulenceType = 'fractalNoise',
+  displacementInactiveScale = 1,
+  displacementActiveScale = 100,
+  displacementXChannelSelector = 'R',
+  displacementYChannelSelector = 'G',
+}) {
   const id = useId();
   const filterId = `glass-distortion-${id.replace(/:/g, '')}`;
 
@@ -9,8 +20,12 @@ export default function MeltedImage({ imgSrc, imgAlt }) {
 
   const displacementRef = useRef(null);
   const reqRef = useRef(null);
-  const currentScaleRef = useRef(1);
+  const currentScaleRef = useRef(displacementInactiveScale);
   const sensorRef = useRef(null);
+
+  const resolvedBaseFrequency = Array.isArray(turbulenceBaseFrequency)
+    ? turbulenceBaseFrequency.join(' ')
+    : String(turbulenceBaseFrequency);
 
   useEffect(() => {
     if (!sensorRef.current) return;
@@ -27,7 +42,7 @@ export default function MeltedImage({ imgSrc, imgAlt }) {
 
   useEffect(() => {
     const isActive = isParentHovered || isSelfHovered;
-    const targetScale = isActive ? 100 : 1;
+    const targetScale = isActive ? displacementActiveScale : displacementInactiveScale;
 
     const animate = () => {
       const diff = targetScale - currentScaleRef.current;
@@ -52,7 +67,22 @@ export default function MeltedImage({ imgSrc, imgAlt }) {
     return () => {
       if (reqRef.current) cancelAnimationFrame(reqRef.current);
     };
-  }, [isParentHovered, isSelfHovered]);
+  }, [
+    isParentHovered,
+    isSelfHovered,
+    displacementActiveScale,
+    displacementInactiveScale,
+  ]);
+
+  useEffect(() => {
+    const isActive = isParentHovered || isSelfHovered;
+    if (isActive) return;
+
+    currentScaleRef.current = displacementInactiveScale;
+    if (displacementRef.current) {
+      displacementRef.current.scale.baseVal = displacementInactiveScale;
+    }
+  }, [displacementInactiveScale, isParentHovered, isSelfHovered]);
 
   const distortionStyle = { filter: `url(#${filterId})` };
 
@@ -81,18 +111,19 @@ export default function MeltedImage({ imgSrc, imgAlt }) {
         <defs>
           <filter id={filterId}>
             <feTurbulence
-              type="fractalNoise"
-              baseFrequency="0.05"
-              numOctaves="3"
+              type={turbulenceType}
+              baseFrequency={resolvedBaseFrequency}
+              numOctaves={turbulenceNumOctaves}
+              seed={turbulenceSeed}
               result="noise"
             />
             <feDisplacementMap
               ref={displacementRef}
               in="SourceGraphic"
               in2="noise"
-              scale="1"
-              xChannelSelector="R"
-              yChannelSelector="G"
+              scale={displacementInactiveScale}
+              xChannelSelector={displacementXChannelSelector}
+              yChannelSelector={displacementYChannelSelector}
             />
           </filter>
         </defs>
