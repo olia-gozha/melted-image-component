@@ -23,8 +23,6 @@ export default function App() {
           active={isCustomCursorActive}
           bgColor='bg-fire'
           arrowColor='text-ghost'
-          blendBackground
-          blendBackgroundClassName="mix-blend-overlay"
         />
       )}
       <header className='p-4 leading-none text-ghost '>
